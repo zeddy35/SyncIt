@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { getArtistImage, getAlbumImage } from '@/lib/artistImage';
+import { getDb } from '@/lib/db';
 
 interface Singer {
   singerID: number;
@@ -17,14 +18,12 @@ interface Album {
 
 async function getData() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const [singersRes, albumsRes] = await Promise.all([
-      fetch(`${baseUrl}/api/singers`, { cache: 'no-store' }),
-      fetch(`${baseUrl}/api/albums`, { cache: 'no-store' }),
+    const db = await getDb();
+    const [singers, albums] = await Promise.all([
+      db.collection('singers').find({}, { projection: { _id: 0 } }).sort({ name: 1 }).toArray(),
+      db.collection('albums').find({}, { projection: { _id: 0 } }).sort({ year: -1 }).toArray(),
     ]);
-    const singers: Singer[] = singersRes.ok ? await singersRes.json() : [];
-    const albums: Album[] = albumsRes.ok ? await albumsRes.json() : [];
-    return { singers, albums };
+    return { singers: singers as Singer[], albums: albums as Album[] };
   } catch {
     return { singers: [], albums: [] };
   }
@@ -42,7 +41,7 @@ export default async function HomePage() {
           <p className="text-green-400 text-sm font-semibold uppercase tracking-widest mb-3">Welcome to</p>
           <h1 className="text-5xl font-black text-white mb-4 tracking-tight">SyncIt</h1>
           <p className="text-zinc-400 text-lg max-w-xl">
-            Manage your music database — artists, albums, and instruments all in one place.
+            Manage your music database artists, albums, and instruments all in one place.
           </p>
           <div className="flex gap-4 mt-8">
             <Link href="/singers" className="px-6 py-3 bg-green-500 text-black font-bold rounded-full text-sm hover:bg-green-400 transition-colors">
