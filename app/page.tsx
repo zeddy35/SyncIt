@@ -23,7 +23,7 @@ async function getData() {
       db.collection('singers').find({}, { projection: { _id: 0 } }).sort({ name: 1 }).toArray(),
       db.collection('albums').find({}, { projection: { _id: 0 } }).sort({ year: -1 }).toArray(),
     ]);
-    return { singers: singers as Singer[], albums: albums as Album[] };
+    return { singers: singers as unknown as Singer[], albums: albums as unknown as Album[] };
   } catch {
     return { singers: [], albums: [] };
   }
