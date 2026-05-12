@@ -3,7 +3,7 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
-  title: 'MusicDB',
+  title: 'SyncIt',
   description: 'Music Database Management App',
 };
 

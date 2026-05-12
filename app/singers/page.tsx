@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import { getArtistImage } from '@/lib/artistImage';
 
 interface Singer {
   singerID: number;
   name: string;
   style: string;
+  instruments: string[];
+  imageKey?: string;
 }
 
 interface Toast {
@@ -53,6 +57,7 @@ export default function SingersPage() {
   const [formName, setFormName] = useState('');
   const [formStyle, setFormStyle] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -121,13 +126,14 @@ export default function SingersPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: formName, style: formStyle }),
         });
-        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
         addToast('Singer added successfully', 'success');
       }
       closeForm();
       fetchSingers();
-    } catch {
-      addToast('Operation failed', 'error');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Operation failed', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -145,6 +151,24 @@ export default function SingersPage() {
       addToast('Failed to delete singer', 'error');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleUpload = async (singer: Singer, file: File) => {
+    setUploadingId(singer.singerID);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('type', 'singer');
+      form.append('id', String(singer.singerID));
+      const res = await fetch('/api/upload', { method: 'POST', body: form });
+      if (!res.ok) throw new Error();
+      addToast('Photo updated', 'success');
+      fetchSingers();
+    } catch {
+      addToast('Upload failed', 'error');
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -242,6 +266,9 @@ export default function SingersPage() {
                 <th className="text-left text-xs uppercase tracking-wider text-zinc-400 font-semibold px-6 py-4">
                   Style
                 </th>
+                <th className="text-left text-xs uppercase tracking-wider text-zinc-400 font-semibold px-6 py-4">
+                  Instruments
+                </th>
                 <th className="text-right text-xs uppercase tracking-wider text-zinc-400 font-semibold px-6 py-4">
                   Actions
                 </th>
@@ -256,17 +283,49 @@ export default function SingersPage() {
                   }`}
                 >
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-zinc-700 rounded-full flex items-center justify-center text-xs font-bold text-zinc-300">
-                        {singer.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-white font-medium text-sm">{singer.name}</span>
+                    <div className="flex items-center gap-4">
+                      <label className="relative w-20 h-20 rounded-full overflow-hidden bg-zinc-700 flex-shrink-0 cursor-pointer group/img">
+                        <Image
+                          src={singer.imageKey ? `/api/image?key=${singer.imageKey}` : getArtistImage(singer.name)}
+                          alt={singer.name}
+                          fill
+                          className="object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                          {uploadingId === singer.singerID ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 15.2A3.2 3.2 0 0 1 8.8 12 3.2 3.2 0 0 1 12 8.8 3.2 3.2 0 0 1 15.2 12 3.2 3.2 0 0 1 12 15.2M12 7a5 5 0 0 0-5 5 5 5 0 0 0 5 5 5 5 0 0 0 5-5 5 5 0 0 0-5-5m0-2.5c-2.03 0-5.5 1.09-7.5 3.19V3.5h15v4.19C17.5 5.59 14.03 4.5 12 4.5z" />
+                            </svg>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => e.target.files?.[0] && handleUpload(singer, e.target.files[0])}
+                        />
+                      </label>
+                      <span className="text-white font-medium text-md">{singer.name}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="px-2.5 py-1 bg-zinc-700 text-zinc-300 text-xs rounded-full">
                       {singer.style}
                     </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1.5">
+                      {singer.instruments?.length > 0 ? singer.instruments.map((ins) => (
+                        <span key={ins} className="px-2 py-0.5 bg-green-500/10 text-green-400 text-xs rounded-full border border-green-500/20">
+                          {ins}
+                        </span>
+                      )) : (
+                        <span className="text-zinc-600 text-xs">—</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">

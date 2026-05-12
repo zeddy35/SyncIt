@@ -1,20 +1,27 @@
 import { NextResponse } from 'next/server';
-import { getPool, sql } from '@/lib/db';
+import { getDb } from '@/lib/db';
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    if (!body.name || !body.style) {
+    if (!body.name?.trim() || !body.style?.trim()) {
       return NextResponse.json({ error: 'Name and style are required' }, { status: 400 });
     }
-    const pool = await getPool();
-    await pool
-      .request()
-      .input('id', sql.Int, parseInt(id))
-      .input('name', sql.NVarChar, body.name)
-      .input('style', sql.NVarChar, body.style)
-      .query('UPDATE SINGER SET name=@name, style=@style WHERE singerID=@id');
+    const db = await getDb();
+    const singerID = parseInt(id);
+
+    await db.collection('singers').updateOne(
+      { singerID },
+      { $set: { name: body.name.trim(), style: body.style.trim() } }
+    );
+
+    // Keep singerName in sync inside albums collection
+    await db.collection('albums').updateMany(
+      { singerID },
+      { $set: { singerName: body.name.trim(), singerStyle: body.style.trim() } }
+    );
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -25,11 +32,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const pool = await getPool();
-    await pool
-      .request()
-      .input('id', sql.Int, parseInt(id))
-      .query('DELETE FROM SINGER WHERE singerID=@id');
+    const db = await getDb();
+    const singerID = parseInt(id);
+
+    await db.collection('singers').deleteOne({ singerID });
+    await db.collection('albums').deleteMany({ singerID });
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);

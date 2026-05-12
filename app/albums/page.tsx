@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import { getAlbumImage, getArtistImage } from '@/lib/artistImage';
 
 interface Album {
   albumID: number;
@@ -8,6 +10,7 @@ interface Album {
   year: number;
   singerName: string;
   singerID: number;
+  imageKey?: string;
 }
 
 interface SingerOption {
@@ -63,6 +66,7 @@ export default function AlbumsPage() {
   const [formSingerID, setFormSingerID] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = (message: string, type: 'success' | 'error') => {
@@ -144,13 +148,14 @@ export default function AlbumsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: formTitle, year: parseInt(formYear), singerID: parseInt(formSingerID) }),
         });
-        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
         addToast('Album added successfully', 'success');
       }
       closeForm();
       fetchAlbums();
-    } catch {
-      addToast('Operation failed', 'error');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Operation failed', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -168,6 +173,24 @@ export default function AlbumsPage() {
       addToast('Failed to delete album', 'error');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleUpload = async (album: Album, file: File) => {
+    setUploadingId(album.albumID);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('type', 'album');
+      form.append('id', String(album.albumID));
+      const res = await fetch('/api/upload', { method: 'POST', body: form });
+      if (!res.ok) throw new Error();
+      addToast('Cover updated', 'success');
+      fetchAlbums();
+    } catch {
+      addToast('Upload failed', 'error');
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -298,11 +321,30 @@ export default function AlbumsPage() {
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-zinc-700 rounded flex items-center justify-center">
-                        <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
-                        </svg>
-                      </div>
+                      <label className="relative w-20 h-20 rounded overflow-hidden bg-zinc-700 flex-shrink-0 cursor-pointer group/img">
+                        <Image
+                          src={album.imageKey ? `/api/image?key=${album.imageKey}` : getAlbumImage(album.title, album.singerName)}
+                          alt={album.title}
+                          fill
+                          className="object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                          {uploadingId === album.albumID ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 15.2A3.2 3.2 0 0 1 8.8 12 3.2 3.2 0 0 1 12 8.8 3.2 3.2 0 0 1 15.2 12 3.2 3.2 0 0 1 12 15.2M12 7a5 5 0 0 0-5 5 5 5 0 0 0 5 5 5 5 0 0 0 5-5 5 5 0 0 0-5-5m0-2.5c-2.03 0-5.5 1.09-7.5 3.19V3.5h15v4.19C17.5 5.59 14.03 4.5 12 4.5z" />
+                            </svg>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => e.target.files?.[0] && handleUpload(album, e.target.files[0])}
+                        />
+                      </label>
                       <span className="text-white font-medium text-sm">{album.title}</span>
                     </div>
                   </td>
@@ -311,8 +353,14 @@ export default function AlbumsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 bg-zinc-600 rounded-full flex items-center justify-center text-xs font-bold text-zinc-300">
-                        {album.singerName?.charAt(0).toUpperCase()}
+                      <div className="relative w-6 h-6 rounded-full overflow-hidden bg-zinc-600 flex-shrink-0">
+                        <Image
+                          src={getArtistImage(album.singerName)}
+                          alt={album.singerName}
+                          fill
+                          className="object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
                       </div>
                       <span className="text-zinc-300 text-sm">{album.singerName}</span>
                     </div>

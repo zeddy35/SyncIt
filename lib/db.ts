@@ -1,22 +1,13 @@
-import sql from 'mssql';
+import { MongoClient, Db } from 'mongodb';
 
-const config: sql.config = {
-  server: 'localhost',
-  database: 'music',
-  user: 'sa',
-  password: 'your_password',
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-  },
-};
+const URI = 'mongodb+srv://zerdendereli:W4k1Tui0BBzOwDO5@zeddy35.xlbc6ia.mongodb.net/final_project?appName=zeddy35';
 
-let pool: sql.ConnectionPool | null = null;
+let client: MongoClient | null = null;
 
-export async function getPool(): Promise<sql.ConnectionPool> {
-  if (pool && pool.connected) return pool;
-  pool = await sql.connect(config);
-  return pool;
+export async function getDb(): Promise<Db> {
+  if (!client) {
+    client = new MongoClient(URI);
+    await client.connect();
+  }
+  return client.db('final_project');
 }
-
-export { sql };

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 const navLinks = [
@@ -39,13 +40,8 @@ export default function Navbar() {
   return (
     <nav className="w-64 min-h-screen bg-zinc-950 border-r border-zinc-800 flex flex-col p-6 fixed top-0 left-0">
       {/* Logo */}
-      <div className="flex items-center gap-3 mb-10">
-        <div className="w-9 h-9 bg-green-500 rounded-full flex items-center justify-center">
-          <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z" />
-          </svg>
-        </div>
-        <span className="text-white text-xl font-bold tracking-tight">MusicDB</span>
+      <div className="flex justify-center mb-10">
+        <Image src="/logo.svg" alt="SyncIt" width={120} height={120} />
       </div>
 
       {/* Nav Links */}
